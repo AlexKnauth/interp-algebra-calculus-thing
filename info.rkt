@@ -3,6 +3,8 @@
 (define collection 'multi)
 
 (define deps '("base"
+               "math-lib"
+               "unstable-list-lib"
                "generic-bind"
                "rackjure"
                "kw-utils"
