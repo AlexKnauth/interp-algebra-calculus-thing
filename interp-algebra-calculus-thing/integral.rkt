@@ -25,6 +25,10 @@
   [(or/c fnV? number?) symbol? symbol? . -> . fnV?]
   (define g (fnV-remove-unneeded/substitute (->fnV f)))
   (match-define (fnV syms body env) g)
+  (when (member C-sym syms)
+    (error 'integral "~a is an argument to the function ~v" C-sym f))
+  (when (equal? C-sym var)
+    (error 'integral "~a cannot be both the integration variable and the constant" C-sym))
   (define vars (remove* (hash-keys env) (find-free-vars (fnC syms body))))
   (unless (empty? vars) (error 'fnV "unbound-identifiers: ~a" vars))
   (define x (freevar var))
