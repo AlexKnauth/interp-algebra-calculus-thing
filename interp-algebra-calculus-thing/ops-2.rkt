@@ -20,6 +20,8 @@
     [(*: 0 rst ...) 0]
     [(*: (*: a ...) rst ...)
      (*_ a rst)]
+    [(*: (+: 0 a ...) rst ...)
+     (*_ (+_ a) rst)]
     [(*: (^: (*: a ...) -1) rst ...)
      (*_ (for/list ([a (in-list a)]) (^_ a -1)) rst)]
     ;[(and product (*: args ...))
