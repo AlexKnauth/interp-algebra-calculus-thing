@@ -5,6 +5,8 @@
 (require racket/match
          racket/contract/base
          racket/list
+         syntax/srcloc
+         syntax/location
          unstable/list
          generic-bind/as-rkt-names
          rackjure/conditionals
@@ -18,11 +20,11 @@
 ;; an ExprS is either an ExprS-struct or a non-keyword s-expression
 (define ExprS? (not/c keyword?))
 (define-type ExprS-struct
-  [letS [vars (listof (list/c symbol? ExprS?))] [body ExprS?]]
-  [fnS [syms (listof symbol?)] [body ExprS?]]
-  [appS [f ExprS?] [args (listof (or/c ExprS? keyword?))]]
-  [ifS [a ExprS?] [b ExprS?] [c ExprS?]]
-  [letstxS [vars (listof (list/c symbol? ExprS?))] [body ExprS?]]
+  [letS [vars (listof (list/c symbol? ExprS?))] [body ExprS?] [srcloc source-location?]]
+  [fnS [syms (listof symbol?)] [body ExprS?] [srcloc source-location?]]
+  [appS [f ExprS?] [args (listof (or/c ExprS? keyword?))] [srcloc source-location?]]
+  [ifS [a ExprS?] [b ExprS?] [c ExprS?] [srcloc source-location?]]
+  [letstxS [vars (listof (list/c symbol? ExprS?))] [body ExprS?] [srcloc source-location?]]
   )
 
 
@@ -38,14 +40,15 @@
     [(? ExprC? e) e]
     [(? ExprS-struct? e)
      (my-type-case ExprS-struct e
-       [(letS `(,ps ...) body)
+       [(letS `(,ps ...) body srcloc)
         (when-let [it (check-duplicate (map first ps))]
           (error 'let "duplicate identifier: ~a" it))
         (letC
          (for/list ([($ `[,x ,y]) (in-list ps)])
-           `[,x ,(expand y env)])
-         (expand body env))]
-       [(letstxS `(,ps ...) body)
+           `[,(idC x #f) ,(expand y env)])
+         (expand body env)
+         srcloc)]
+       [(letstxS `(,ps ...) body srcloc)
         (define orig-env env)
         (when-let [it (check-duplicate (map first ps))]
           (error 'let-syntax "duplicate identifier: ~a" it))
@@ -53,11 +56,14 @@
          body
          (for/fold ([env orig-env]) ([($ `[,x ,y]) (in-list ps)])
            (hash-set env x (syntax-binding (interp-expanded (expand y empty-env) empty-env)))))]
-       [(fnS `(,syms ...) body)
+       [(fnS `(,syms ...) body srcloc)
         (when-let [it (check-duplicate syms)]
           (error 'lambda "duplicate identifier: ~a" it))
-        (fnC syms (expand body env))]
-       [(appS f args)
+        (define ids
+          (for/list ([sym (in-list syms)])
+            (idC sym #f)))
+        (fnC ids (expand body env) srcloc)]
+       [(appS f args srcloc)
         (appC (expand f env)
               (let loop ([rev-args '()] [args args])
                 (match args
@@ -65,15 +71,16 @@
                   [(list-rest (? keyword? kw) (and arg (not (? keyword?))) rst)
                    (loop (cons (list kw (expand arg env)) rev-args) rst)]
                   [(list-rest (and arg (not (? keyword?))) rst)
-                   (loop (cons (expand arg env) rev-args) rst)])))]
-       [(ifS a b c)
-        (ifC (expand a env) (expand b env) (expand c env))])]
-    [(? number? num) (valC num)]
-    [(? boolean? b) (valC b)]
-    [(? fnV? f) (valC f)]
+                   (loop (cons (expand arg env) rev-args) rst)]))
+              srcloc)]
+       [(ifS a b c srcloc)
+        (ifC (expand a env) (expand b env) (expand c env) srcloc)])]
+    [(? number? num) (valC num #f)]
+    [(? boolean? b) (valC b #f)]
+    [(? fnV? f) (valC f #f)]
     [(? symbol? sym)                              ; TODO: make it hygienic
      (match (hash-ref env sym #f)
-       [(or (valC _) #f) (idC sym)]
+       [(or (valC _ _) #f) (idC sym #f)]
        [(syntax-binding (? procedure? proc))
         (expand (proc #:stx s-exp) env)])]
     [`(,(? symbol? m) . ,_)                       ; TODO: make it hygienic
@@ -87,21 +94,21 @@
 
 
 
-(define (s-exp-fn syms body [env empty-env])
-  (interp-expanded (expand (fnS syms body) env) env))
+(define (s-exp-fn syms body [env empty-env] [loc #f])
+  (interp-expanded (expand (fnS syms body loc) env) env))
 
 (define/contract (exprC->s-exp e)
   [ExprC? . -> . ExprS?]
   (my-type-case ExprC e
-    [(valC x) (error "....")]
-    [(idC x) x]
-    [(letC vars body)
+    [(valC x srcloc) (error "....")]
+    [(idC x srcloc) x]
+    [(letC vars body srcloc)
      (error "....")]
-    [(fnC syms body)
+    [(fnC syms body srcloc)
      (error "....")]
-    [(appC f args)
+    [(appC f args srcloc)
      (error "....")]
-    [(ifC a b c)
+    [(ifC a b c srcloc)
      (error "....")]
     ))
 
@@ -112,32 +119,32 @@
                      (lambda (#:stx s-exp)
                        (match s-exp
                          [`(#%app ,f . ,args)
-                          (appS f args)])))
+                          (appS f args #f)])))
              'let (syntax-binding
                    (lambda (#:stx s-exp)
                      (match s-exp
                        [`(let ,vars ,body)
-                        (letS vars body)])))
+                        (letS vars body #f)])))
              'fn (syntax-binding
                   (lambda (#:stx s-exp)
                     (match s-exp
                       [`(fn ,syms ,body)
-                       (fnS syms body)])))
+                       (fnS syms body #f)])))
              'if (syntax-binding
                   (lambda (#:stx s-exp)
                     (match s-exp
                       [`(if ,a ,b ,c)
-                       (ifS a b c)])))
+                       (ifS a b c #f)])))
              ))
 
 (define/contract (extend-env/vals env)
   [env? . -> . env?]
   (hash-set* env
-             '+ (valC +)
-             '- (valC -)
-             '* (valC *)
-             '/ (valC /)
-             '^ (valC expt)
+             '+ (mk-valC +)
+             '- (mk-valC -)
+             '* (mk-valC *)
+             '/ (mk-valC /)
+             '^ (mk-valC expt)
              ))
 
 (define/contract (extend-env/interp.rkt env)
@@ -150,7 +157,7 @@
   (define basic-stx-env (extend-env/basic-stx empty-env))
   (define init-env (extend-env/interp.rkt empty-env))
   (check-equal? (interp 1 empty-env) 1)
-  (check-equal? (interp (valC '(+ 1 2)) empty-env) '(+ 1 2))
+  (check-equal? (interp (mk-valC '(+ 1 2)) empty-env) '(+ 1 2))
   (check-equal? (interp `(let ([x 1]) x) basic-stx-env) 1)
   (check-equal? (interp `(let ([x 1]) (let ([x 2]) x)) basic-stx-env) 2)
   (check-exn exn:fail? (λ () (expand `(let ([x 1] [x 1]) 1) basic-stx-env)))
@@ -169,8 +176,8 @@
   (test-case "f(x,y) = x"
     (define f (interp `(fn (x y) x) basic-stx-env))
     (check-equal? (f) f)
-    (check-equal? (f #:x 1) (interp `(fn (y) x) (hash-set basic-stx-env 'x (valC 1))))
-    (check-equal? (f #:y 2) (interp `(fn (x) x) (hash-set basic-stx-env 'y (valC 2))))
+    (check-equal? (f #:x 1) (interp `(fn (y) x) (hash-set basic-stx-env 'x (valC 1 #f))))
+    (check-equal? (f #:y 2) (interp `(fn (x) x) (hash-set basic-stx-env 'y (valC 2 #f))))
     (check-equal? (f #:x 1 #:y 2) 1)
     (check-equal? ((f #:x 1) #:y 2) 1)
     (check-equal? ((f #:y 2) #:x 1) 1)

@@ -21,16 +21,19 @@
   [(or/c fnV? number?) symbol? . -> . fnV?]
   (define g (fnV-remove-unneeded/substitute (->fnV f)))
   (match-define (fnV syms body env) g)
-  (define vars (remove* (hash-keys env) (find-free-vars (fnC syms body))))
+  (define ids
+    (for/list ([sym (in-list syms)])
+      (idC sym #f)))
+  (define vars (remove* (hash-keys env) (find-free-vars (fnC ids body #f))))
   (unless (empty? vars) (error 'fnV "unbound-identifiers: ~a" vars))
   (cond
-    [(not (member var syms)) (fnV '() (valC 0) empty-env)]
+    [(not (member var syms)) (fnV '() (valC 0 #f) empty-env)]
     [else
      (define g*
        (match (maybe-thunk->number g)
          [(? number?) 0]
-         [(fnV _ (idC (== var)) _) 1]
-         [(fnV _ (idC (not (== var))) _) 0]
+         [(fnV _ (idC (== var) _) _) 1]
+         [(fnV _ (idC (not (== var)) _) _) 0]
          [(+: args ...)
           (+_ (for/list ([arg (in-list args)])
                 (partial-deriv arg var)))]

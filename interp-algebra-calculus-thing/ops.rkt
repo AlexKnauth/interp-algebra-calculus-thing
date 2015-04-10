@@ -24,7 +24,7 @@
 
 (define/contract (freevar sym)
   [symbol? . -> . fnV?]
-  (fnV (list sym) (idC sym) empty-env))
+  (fnV (list sym) (idC sym #f) empty-env))
 
 (define-simple-macro (define-freevars x:id ...)
   (begin (define x (freevar 'x)) ...))
@@ -44,16 +44,17 @@
        (remove-duplicates
         (flatten (map fnV-syms (filter fnV? args)))))
      (fnV syms
-          (appC (valC list)
+          (appC (mk-valC list)
                 (for/list ([arg (in-list args)])
                   (cond
-                    [(number? arg) (valC arg)]
+                    [(number? arg) (valC arg #f)]
                     [else
                      (appC/substitute
-                      (valC arg)
+                      (valC arg #f)
                       (for/list ([sym (in-list (fnV-syms arg))])
                         (list (symbol->keyword sym)
-                              (idC sym))))])))
+                              (idC sym #f))))]))
+                #f)
           empty-env)]))
 
 (define (fn-op name op op/exprs)
@@ -61,7 +62,7 @@
     (match (fn-args args)
       [(list args ...)
        (apply op args)]
-      [(fnV syms (appC (valC (== list)) arg-exprs) env)
+      [(fnV syms (appC (valC (== list) _) arg-exprs _) env)
        (fnV syms (op/exprs arg-exprs) env)]))
   (procedure-reduce-arity
    (procedure-rename new-op name)
@@ -79,7 +80,7 @@
 
 (define (numC? x)
   (match x
-    [(valC (? number? n)) #t]
+    [(valC (? number? n) _) #t]
     [_ #f]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -93,8 +94,8 @@
      (define-values (nums exprs)
        (partition numC? args))
      (define n (sum (map valC-val nums)))
-     (cond [(zero? n) (appC (valC +) exprs)]
-           [else      (appC (valC +) (append exprs (list (valC n))))]))))
+     (cond [(zero? n) (appC (mk-valC +) exprs #f)]
+           [else      (appC (mk-valC +) (append exprs (list (valC n #f))) #f)]))))
 
 (define/contract *
   [[] #:rest (listof (or/c number? fnV?)) . ->* . (or/c number? fnV?)]
@@ -105,24 +106,24 @@
      (define-values (nums exprs)
        (partition numC? args))
      (define n (product (map valC-val nums)))
-     (cond [(= n 1) (appC (valC *) exprs)]
-           [else    (appC (valC *) (append (list (valC n)) exprs))]))))
+     (cond [(= n 1) (appC (mk-valC *) exprs #f)]
+           [else    (appC (mk-valC *) (append (list (valC n #f)) exprs) #f)]))))
 
 (define/contract ^
   [(or/c number? fnV?) (or/c number? fnV?) . -> . (or/c number? fnV?)]
-  (fn-op '^ expt (λ (args) (appC (valC ^) args))))
+  (fn-op '^ expt (λ (args) (appC (mk-valC ^) args #f))))
 
 (define/contract sin
   [(or/c number? fnV?) . -> . (or/c number? fnV?)]
-  (fn-op 'sin rkt:sin (λ (args) (appC (valC sin) args))))
+  (fn-op 'sin rkt:sin (λ (args) (appC (mk-valC sin) args #f))))
 
 (define/contract cos
   [(or/c number? fnV?) . -> . (or/c number? fnV?)]
-  (fn-op 'cos rkt:cos (λ (args) (appC (valC cos) args))))
+  (fn-op 'cos rkt:cos (λ (args) (appC (mk-valC cos) args #f))))
 
 (define/contract ln
   [(or/c number? fnV?) . -> . (or/c number? fnV?)]
-  (fn-op 'ln rkt:log (λ (args) (appC (valC ln) args))))
+  (fn-op 'ln rkt:log (λ (args) (appC (mk-valC ln) args #f))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -155,95 +156,95 @@
      (define s (remove-duplicates (append syms f-syms)))
      (fnV s body env)]
     [(? number? x)
-     (fnV syms (valC x) empty-env)]))
+     (fnV syms (valC x #f) empty-env)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (+? f)
   (match f
-    [(fnV _ (appC (valC (== +)) (list (? ExprC?) ...)) _) #t]
+    [(fnV _ (appC (valC (== +) _) (list (? ExprC?) ...) _) _) #t]
     [_ #f]))
 
 (define (*? f)
   (match f
-    [(fnV _ (appC (valC (== *)) (list (? ExprC?) ...)) _) #t]
+    [(fnV _ (appC (valC (== *) _) (list (? ExprC?) ...) _) _) #t]
     [_ #f]))
 
 (define (^? f)
   (match f
-    [(fnV _ (appC (valC (== ^)) (list (? ExprC?) (? ExprC?))) _) #t]
+    [(fnV _ (appC (valC (== ^) _) (list (? ExprC?) (? ExprC?)) _) _) #t]
     [_ #f]))
 
 (define (sin? f)
   (match f
-    [(fnV _ (appC (valC (== sin)) (list (? ExprC?))) _) #t]
+    [(fnV _ (appC (valC (== sin) _) (list (? ExprC?)) _) _) #t]
     [_ #f]))
 
 (define (cos? f)
   (match f
-    [(fnV _ (appC (valC (== cos)) (list (? ExprC?))) _) #t]
+    [(fnV _ (appC (valC (== cos) _) (list (? ExprC?)) _) _) #t]
     [_ #f]))
 
 (define (ln? f)
   (match f
-    [(fnV _ (appC (valC (== ln)) (list (? ExprC?))) _) #t]
+    [(fnV _ (appC (valC (== ln) _) (list (? ExprC?)) _) _) #t]
     [_ #f]))
 
 (define (+-args f)
-  (match-define (fnV syms (appC (valC (== +)) arg-exprs) env) f)
+  (match-define (fnV syms (appC (valC (== +) _) arg-exprs _) env) f)
   (for/list ([arg-expr (in-list arg-exprs)])
     (my-type-case ExprC arg-expr
-      [(valC v)
+      [(valC v _)
        (match v
          [(? number? v) v])]
       [else
        (fnV syms arg-expr env)])))
 
 (define (*-args f)
-  (match-define (fnV syms (appC (valC (== *)) arg-exprs) env) f)
+  (match-define (fnV syms (appC (valC (== *) _) arg-exprs _) env) f)
   (for/list ([arg-expr (in-list arg-exprs)])
     (my-type-case ExprC arg-expr
-      [(valC v)
+      [(valC v _)
        (match v
          [(? number? v) v])]
       [else
        (fnV syms arg-expr env)])))
 
 (define (^-args f)
-  (match-define (fnV syms (appC (valC (== ^)) arg-exprs) env) f)
+  (match-define (fnV syms (appC (valC (== ^) _) arg-exprs _) env) f)
   (for/list ([arg-expr (in-list arg-exprs)])
     (my-type-case ExprC arg-expr
-      [(valC v)
+      [(valC v _)
        (match v
          [(? number? v) v])]
       [else
        (fnV syms arg-expr env)])))
 
 (define (sin-args f)
-  (match-define (fnV syms (appC (valC (== sin)) arg-exprs) env) f)
+  (match-define (fnV syms (appC (valC (== sin) _) arg-exprs _) env) f)
   (for/list ([arg-expr (in-list arg-exprs)])
     (my-type-case ExprC arg-expr
-      [(valC v)
+      [(valC v _)
        (match v
          [(? number? v) v])]
       [else
        (fnV syms arg-expr env)])))
 
 (define (cos-args f)
-  (match-define (fnV syms (appC (valC (== cos)) arg-exprs) env) f)
+  (match-define (fnV syms (appC (valC (== cos) _) arg-exprs _) env) f)
   (for/list ([arg-expr (in-list arg-exprs)])
     (my-type-case ExprC arg-expr
-      [(valC v)
+      [(valC v _)
        (match v
          [(? number? v) v])]
       [else
        (fnV syms arg-expr env)])))
 
 (define (ln-args f)
-  (match-define (fnV syms (appC (valC (== ln)) arg-exprs) env) f)
+  (match-define (fnV syms (appC (valC (== ln) _) arg-exprs _) env) f)
   (for/list ([arg-expr (in-list arg-exprs)])
     (my-type-case ExprC arg-expr
-      [(valC v)
+      [(valC v _)
        (match v
          [(? number? v) v])]
       [else
@@ -283,14 +284,14 @@
 
 (define (extend-env/ops.rkt env)
   (hash-set* env
-             '+ (valC +)
-             '* (valC *)
-             '^ (valC ^)
-             '- (valC -)
-             '1/ (valC 1/)
-             '/ (valC /)
-             'sin (valC sin)
-             'cos (valC cos)
+             '+ (mk-valC +)
+             '* (mk-valC *)
+             '^ (mk-valC ^)
+             '- (mk-valC -)
+             '1/ (mk-valC 1/)
+             '/ (mk-valC /)
+             'sin (mk-valC sin)
+             'cos (mk-valC cos)
              ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

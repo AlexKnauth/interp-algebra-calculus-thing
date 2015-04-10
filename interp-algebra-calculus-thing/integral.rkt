@@ -29,15 +29,18 @@
     (error 'integral "~a is an argument to the function ~v" C-sym f))
   (when (equal? C-sym var)
     (error 'integral "~a cannot be both the integration variable and the constant" C-sym))
-  (define vars (remove* (hash-keys env) (find-free-vars (fnC syms body))))
+  (define ids
+    (for/list ([sym (in-list syms)])
+      (idC sym #f)))
+  (define vars (remove* (hash-keys env) (find-free-vars (fnC ids body #f))))
   (unless (empty? vars) (error 'fnV "unbound-identifiers: ~a" vars))
   (define x (freevar var))
   (define C (freevar C-sym))
   (define G
     (match (maybe-thunk->number g)
       [(? number? n) (*_ n x)] ; + C added later
-      [(fnV _ (idC (== var)) _) (*_ 1/2 (^_ x 2))]
-      [(fnV _ (idC (and n (not (== var)))) _) (*_ (freevar n) x)]
+      [(fnV _ (idC (== var) _) _) (*_ 1/2 (^_ x 2))]
+      [(fnV _ (idC (and n (not (== var))) _) _) (*_ (freevar n) x)]
       [(+: args ...)
        (+_ (for/list ([arg (in-list args)])
              (integral/!C arg var)))]
