@@ -5,10 +5,12 @@
 (define deps '("base"
                "math-lib"
                "unstable-list-lib"
+               "typed-racket-lib"
                "generic-bind"
                "rackjure"
                "kw-utils"
                "match-string"
+               "my-cond"
                "git://github.com/AlexKnauth/my-plai"
                ))
 
