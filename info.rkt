@@ -10,9 +10,9 @@
                "kw-utils"
                "match-string"
                "git://github.com/AlexKnauth/my-plai"
-               "git://github.com/AlexKnauth/testing-utils"
                ))
 
 (define build-deps '("rackunit-lib"
+                     "git://github.com/AlexKnauth/testing-utils"
                      ))
 
