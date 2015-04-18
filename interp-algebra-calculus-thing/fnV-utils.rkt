@@ -75,7 +75,7 @@
     ))
 
 (define/contract (substitute body env)
-  [ExprC? env? . -> . ExprC?]
+  [ExprC? runtime-env? . -> . ExprC?]
   (substitute/ExprC body env))
 
 (define/contract (substitute/ExprC body hsh)

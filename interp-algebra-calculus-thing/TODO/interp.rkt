@@ -12,6 +12,7 @@
          rackjure/conditionals
          my-plai/my-type-case
          "../interp-expanded.rkt"
+         "../stuff.rkt"
          )
 (module+ test
   (require rackunit
@@ -27,11 +28,22 @@
   [letstxS [vars (listof (list/c symbol? ExprS?))] [body ExprS?] [srcloc source-location?]]
   )
 
+(struct syntax-binding (val) #:transparent)
+
+(define env?
+  (flat-named-contract
+   'env?
+   (ihasheq/c symbol? (or/c valC? syntax-binding?))))
+
+(define (env->runtime-env env)
+  (for/hasheq ([(k v) (in-hash env)] #:when (valC? v))
+    (values k v)))
+
 
 ;; interp : S-Exp Env -> Any
 (define/contract (interp s-exp env)
   [any/c env? . -> . any/c]
-  (interp-expanded (expand s-exp env) env))
+  (interp-expanded (expand s-exp env) (env->runtime-env env)))
 
 ;; expand : S-Exp Env -> ExprC
 (define/contract (expand s-exp env)

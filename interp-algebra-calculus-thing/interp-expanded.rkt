@@ -30,15 +30,13 @@
 ;; in a valC, and nothing preventing an identifier macro from expanding to a reference to a mutable
 ;; box, so things that look like variables are still possible in the surface syntax.
 
-(struct syntax-binding (val) #:transparent)
-
-;; an Env is an immutable (Hasheqof Symbol (U (valC Any) (syntax-binding Any))
-(define env?
+;; a Runtime-Env is an immutable (Hasheqof Symbol ValC)
+(define runtime-env?
   (flat-named-contract
-   'env?
-   (ihasheq/c symbol? (or/c valC? syntax-binding?))))
+   'runtime-env?
+   (ihasheq/c symbol? valC?)))
 
-(define/contract empty-env env? (hasheq))
+(define/contract empty-env runtime-env? (hasheq))
 
 (define/contract (idC->id id #:ctxt [ctxt #f] #:props [props #f])
   [[idC?] [#:ctxt (or/c syntax? #f) #:props (or/c syntax? #f)] . ->* . identifier?]
@@ -47,9 +45,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; interp-expanded : ExprC Env -> Any
+;; interp-expanded : ExprC Runtime-Env -> Any
 (define/contract (interp-expanded exprC env)
-  [ExprC? env? . -> . any/c]
+  [ExprC? runtime-env? . -> . any/c]
   (my-type-case ExprC exprC
     [(valC val _) val]
     [(letC `(,(and ps `[,ids ,vals]) ...) body srcloc)
@@ -97,8 +95,8 @@
       (error 'fnV "expected (listof symbol?), given: ~v" syms))
     (unless (ExprC? body)
       (error 'fnV "expected ExprC?, given: ~v" body))
-    (unless (env? env)
-      (error 'fnV "expected env?, given: ~v" env))
+    (unless (runtime-env? env)
+      (error 'fnV "expected runtime-env?, given: ~v" env))
     (values syms body env)
     )
   #:property prop:procedure
@@ -111,7 +109,7 @@
     (define rst-syms (remove* given-syms syms))
     (cond
       [(empty? rst-syms)
-       (define/contract body-env env?
+       (define/contract body-env runtime-env?
          (for/fold ([env env]) ([sym (in-list given-syms)]
                                 [arg (in-list kw-args)])
            (hash-set env sym (valC arg #f))))

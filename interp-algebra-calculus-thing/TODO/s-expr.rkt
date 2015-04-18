@@ -11,7 +11,7 @@
 (module+ test
   (require testing-utils syntax/parse/define))
 
-;; exprC->s-expr+env : ExprC Env -> (values ExprC Env)
+;; exprC->s-expr+env : ExprC Runtime-Env -> (values ExprC Runtime-Env)
 (define (exprC->s-expr+env e env)
   (my-type-case ExprC e
     [(idC sym srcloc)
