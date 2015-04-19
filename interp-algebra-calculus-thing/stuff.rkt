@@ -28,6 +28,11 @@
    `(ihasheq/c ,(contract-name k) ,(contract-name v))
    (and/c hash? hash-eq? (hash/c k v #:immutable #t))))
 
+(define (ihashequal/c k v)
+  (flat-named-contract
+   `(ihashequal/c ,(contract-name k) ,(contract-name v))
+   (and/c hash? hash-equal? (hash/c k v #:immutable #t))))
+
 (define (member? x lst)
   (and (member x lst) #t))
 
