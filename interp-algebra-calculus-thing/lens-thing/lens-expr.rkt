@@ -10,6 +10,7 @@ module+ test
 
 ;; Expr is one of:
 ;;  - Number
+;;  - String
 ;;  - (Lens Env Expr)
 ;; Env is (Hashof Symbol Expr)
 (define (env-lookup env sym)
@@ -32,6 +33,8 @@ module+ test
   (define-values [nums lenses]
     (partition number? exprs))
   (define num (rkt:sum nums))
+  (unless (andmap lens? lenses)
+    (error "sum expects number expressions"))
   (cond [(empty? lenses)
          num]
         [else
@@ -49,9 +52,10 @@ module+ test
 (define (+ . exprs)
   (sum exprs))
 
-;; app : Expr Env
+;; app : Expr Env -> Expr
 (define (app expr env)
   (cond [(number? expr) expr]
+        [(string? expr) expr]
         [else (lens-view expr env)]))
 
 
