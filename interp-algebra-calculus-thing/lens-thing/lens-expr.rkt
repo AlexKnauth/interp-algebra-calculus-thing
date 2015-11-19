@@ -72,15 +72,29 @@ module+ test
              (lambda (env)
                (string-append s (lens-view rest-expr env)))
              (lambda (env new-res)
-               env))])]
+               (cond [(string? new-res)
+                      (define res-start (substring new-res 0 s-len))
+                      (unless (string=? res-start s)
+                        (error "doesn't work"))
+                      (lens-set rest-expr env (substring new-res s-len))]
+                     [else
+                      (error "....")])))])]
     [(list-rest s:lns rest)
      (define rest-expr (string-append* rest))
      (cond [(string? rest-expr)
+            (define rest-len (string-length rest-expr))
             (make-lens
              (lambda (env)
                (string-append (lens-view s env) rest-expr))
-             (lambda (env rew-res)
-               (error "....")))]
+             (lambda (env new-res)
+               (cond [(string? new-res)
+                      (define res-len (string-length new-res))
+                      (define res-end (substring new-res (- res-len rest-len)))
+                      (unless (string=? res-end rest-expr)
+                        (error "doesn't work"))
+                      (lens-set s env (substring new-res 0 (- res-len rest-len)))]
+                     [else
+                      (error "....")])))]
            [else
             (error "....")])]
     ))
