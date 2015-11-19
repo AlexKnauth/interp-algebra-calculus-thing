@@ -121,4 +121,5 @@ module+ test
   (check-equal? (string-append "abc" "def") "abcdef")
   (check-equal? (app (string-append "abc" x) (x= "def")) "abcdef")
   (check-equal? (app (string-append x "def") (x= "abc")) "abcdef")
+  (check-equal? (lens-set (string-append "abc" x) (x= "def") "abcDEF") (x= "DEF"))
 
