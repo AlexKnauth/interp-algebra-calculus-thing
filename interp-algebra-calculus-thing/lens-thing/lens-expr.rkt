@@ -29,6 +29,7 @@ module+ test
      (env-set env sym new-res))))
 
 ;; sum : (Listof Expr) -> Expr
+;; Exprs should be number exprs
 (define (sum exprs)
   (define-values [nums lenses]
     (partition number? exprs))
@@ -49,6 +50,7 @@ module+ test
               [_ (error "....")])))]))
 
 ;; + : Expr ... -> Expr
+;; Exprs should be number exprs
 (define (+ . exprs)
   (sum exprs))
 
@@ -67,10 +69,11 @@ module+ test
   (define x=3 (x= 3))
   (define y=4 (y= 4))
   (define x=3∧y=4 (make-env '([x . 3] [y . 4])))
+  (define  x=4∧y=4 (make-env '([x . 4] [y . 4])))
   (check-equal? (app x x=3) 3)
   (check-equal? (app (+ x 1) x=3) 4)
   (check-equal? (app (+ x y) x=3∧y=4) 7)
-  (check-equal? (lens-set (+ x 1) x=3 5) (x= 4))
+  (check-equal? (lens-set (+ x 1) x=3∧y=4 5) x=4∧y=4)
   (define-check (check-equal-at? l1 l2 seq)
     (for ([env seq])
       (check-equal? (app l1 env) (app l2 env))))
