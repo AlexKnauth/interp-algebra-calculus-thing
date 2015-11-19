@@ -1,6 +1,7 @@
 #lang sweet-exp racket
 
 require fancy-app
+        colon-match
         lens
         prefix-in rkt: racket/base
         prefix-in rkt: math/base
@@ -12,6 +13,8 @@ module+ test
 ;;  - Number
 ;;  - String
 ;;  - (Lens Env Expr)
+(define-:match-class lns lens?)
+
 ;; Env is (Hashof Symbol Expr)
 (define (env-lookup env sym)
   (hash-ref env sym))
@@ -54,6 +57,39 @@ module+ test
 (define (+ . exprs)
   (sum exprs))
 
+;; string-append* : (Listof Expr) -> Expr
+;; Exprs should be string exprs
+(define (string-append* exprs)
+  (:match exprs
+    [(list) ""]
+    [(list-rest s:str rest)
+     (define rest-expr (string-append* rest))
+     (define s-len (string-length s))
+     (cond [(string? rest-expr)
+            (rkt:string-append s rest-expr)]
+           [else
+            (make-lens
+             (lambda (env)
+               (string-append s (lens-view rest-expr env)))
+             (lambda (env new-res)
+               env))])]
+    [(list-rest s:lns rest)
+     (define rest-expr (string-append* rest))
+     (cond [(string? rest-expr)
+            (make-lens
+             (lambda (env)
+               (string-append (lens-view s env) rest-expr))
+             (lambda (env rew-res)
+               (error "....")))]
+           [else
+            (error "....")])]
+    ))
+
+;; string-append : Expr ... -> Expr
+;; Exprs should be string exprs
+(define (string-append . exprs)
+  (string-append* exprs))
+
 ;; app : Expr Env -> Expr
 (define (app expr env)
   (cond [(number? expr) expr]
@@ -81,4 +117,8 @@ module+ test
                    (env-lookup (x= (+ y -1)) 'x)
                    (for/list ([v (in-range -10 11)])
                      (y= v)))
+  ;; string-append
+  (check-equal? (string-append "abc" "def") "abcdef")
+  (check-equal? (app (string-append "abc" x) (x= "def")) "abcdef")
+  (check-equal? (app (string-append x "def") (x= "abc")) "abcdef")
 

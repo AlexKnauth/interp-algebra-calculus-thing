@@ -11,6 +11,7 @@
                "generic-bind"
                "rackjure"
                "kw-utils"
+               "colon-match"
                "match-string"
                "my-cond"
                "git://github.com/AlexKnauth/my-plai"
