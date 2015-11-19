@@ -6,6 +6,8 @@
                "math-lib"
                "unstable-list-lib"
                "typed-racket-lib"
+               "sweet-exp"
+               "lens"
                "generic-bind"
                "rackjure"
                "kw-utils"
