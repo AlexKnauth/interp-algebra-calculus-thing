@@ -8,6 +8,7 @@ require fancy-app
         unstable/lens
 module+ test
   require rackunit
+          racket/hash
 
 ;; Expr is one of:
 ;;  - Number
@@ -117,9 +118,10 @@ module+ test
   (define (x= v) (make-env `([x . ,v])))
   (define (y= v) (make-env `([y . ,v])))
   (define x=3 (x= 3))
+  (define x=4 (x= 4))
   (define y=4 (y= 4))
-  (define x=3∧y=4 (make-env '([x . 3] [y . 4])))
-  (define  x=4∧y=4 (make-env '([x . 4] [y . 4])))
+  (define x=3∧y=4 (hash-union x=3 y=4))
+  (define  x=4∧y=4 (hash-union x=4 y=4))
   (check-equal? (app x x=3) 3)
   (check-equal? (app (+ x 1) x=3) 4)
   (check-equal? (app (+ x y) x=3∧y=4) 7)
