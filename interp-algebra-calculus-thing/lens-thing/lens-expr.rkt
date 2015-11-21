@@ -111,6 +111,16 @@ module+ test
         [(string? expr) expr]
         [else (lens-view expr env)]))
 
+;; expr-set : Expr Env Expr -> Expr
+(define (expr-set expr env new-res)
+  (cond [(or (number? expr) (string? expr))
+         (unless (eq? expr new-res)
+           (error 'expr-set "~v is not ~v, and nothing you do can change that"
+                  expr new-res))
+         env]
+        [(lens? expr)
+         (lens-set expr env new-res)]))
+
 
 module+ test
   (define x (freevar 'x))
@@ -125,11 +135,11 @@ module+ test
   (check-equal? (app x x=3) 3)
   (check-equal? (app (+ x 1) x=3) 4)
   (check-equal? (app (+ x y) x=3∧y=4) 7)
-  (check-equal? (lens-set (+ x 1) x=3∧y=4 5) x=4∧y=4)
+  (check-equal? (expr-set (+ x 1) x=3∧y=4 5) x=4∧y=4)
   (define-check (check-equal-at? l1 l2 seq)
     (for ([env seq])
       (check-equal? (app l1 env) (app l2 env))))
-  (check-equal-at? (env-lookup (lens-set (+ x 1) x=3 y) 'x)
+  (check-equal-at? (env-lookup (expr-set (+ x 1) x=3 y) 'x)
                    (env-lookup (x= (+ y -1)) 'x)
                    (for/list ([v (in-range -10 11)])
                      (y= v)))
@@ -137,6 +147,6 @@ module+ test
   (check-equal? (string-append "abc" "def") "abcdef")
   (check-equal? (app (string-append "abc" x) (x= "def")) "abcdef")
   (check-equal? (app (string-append x "def") (x= "abc")) "abcdef")
-  (check-equal? (lens-set (string-append "abc" x) (x= "def") "abcDEF") (x= "DEF"))
-  (check-equal? (lens-set (string-append x "def") (x= "abc") "ABCdef") (x= "ABC"))
+  (check-equal? (expr-set (string-append "abc" x) (x= "def") "abcDEF") (x= "DEF"))
+  (check-equal? (expr-set (string-append x "def") (x= "abc") "ABCdef") (x= "ABC"))
 
