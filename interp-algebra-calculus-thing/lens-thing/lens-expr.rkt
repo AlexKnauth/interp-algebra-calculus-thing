@@ -5,6 +5,7 @@ require fancy-app
         lens
         prefix-in rkt: racket/base
         prefix-in rkt: math/base
+        syntax/parse/define
         unstable/lens
 module+ test
   require rackunit
@@ -31,6 +32,11 @@ module+ test
      (env-lookup env sym))
    (lambda (env new-res)
      (env-set env sym new-res))))
+
+;; fn is a macro for creating Exprs with freevars.
+(define-simple-macro (fn (id:id ...) body:expr)
+  (let ([id (freevar 'id)] ...)
+    body))
 
 ;; sum : (Listof Expr) -> Expr
 ;; Exprs should be number exprs
