@@ -48,7 +48,7 @@ module+ test
             (sum (cons num (map (lens-view _ env) lenses))))
           (lambda (env new-res)
             (match lenses
-              [(list) (error "....")]
+              [(list) (error 'sum "this should be impossible")]
               [(list lens)
                (lens-set lens env (+ new-res (rkt:- num)))]
               [_ (error "....")])))]))
